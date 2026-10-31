@@ -26,6 +26,7 @@ from .providers import ProviderError
 from .service import Busy, daily_counts, exclusive, execute, now, poll_capture, start_capture, synchronize, get_capture, recover_capture
 from .validation import validation_summary
 from .diagnostics import database_diagnostic
+from .automation import AutomationSettings, settings as automation_settings, cycle as automation_cycle
 
 STATIC = Path(__file__).parent / "static"
 load_environment()
@@ -402,6 +403,20 @@ def create_app(database_url=None):
         return {"production": production, "timezone": "America/Sao_Paulo", "database": "PostgreSQL" if engine.dialect.name == "postgresql" else "SQLite local",
                 "variables": {k: bool(os.getenv(k)) for k in names}, "niches": NICHES}
 
+    @app.get('/api/automation/settings', dependencies=[Depends(authorized)])
+    def get_automation_settings():
+        with sessions() as s:
+            return automation_settings(s).model_dump()
+
+    @app.put('/api/automation/settings', dependencies=[Depends(authorized)])
+    def save_automation_settings(data: AutomationSettings):
+        if data.capture_enabled and (not data.city.strip() or not data.niche.strip()):
+            raise HTTPException(422, 'Defina cidade e nicho para habilitar a captação diária.')
+        with exclusive(sessions), sessions.begin() as s:
+            set_config(s, 'automation', data.model_dump())
+            s.add(Activity(kind='automacao', detail='Alvos da captação diária atualizados.'))
+        return data.model_dump()
+
     @app.get("/api/activity", dependencies=[Depends(authorized)])
     def activity():
         with sessions() as s:
@@ -426,7 +441,7 @@ def create_app(database_url=None):
 
     @app.post("/api/automation/run", dependencies=[Depends(authorize_worker)])
     def automation():
-        return execute(sessions, scheduled=True, batch=20)
+        return automation_cycle(sessions)
 
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
     return app

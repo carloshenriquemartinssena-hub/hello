@@ -10,6 +10,7 @@ from .domain import campaign
 from .secrets_config import load_worker_secrets
 from .service import Busy, execute
 from .providers import ProviderError
+from .automation import cycle
 
 
 def run(operation):
@@ -26,7 +27,7 @@ def run(operation):
                     raise ValueError("Execute o SQL do CRM 2 no Supabase.")
                 campaign(s)
             return {"status": "prepared", "database": "ok", "emails_sent": 0, "capture_started": False}
-        return execute(sessions, scheduled=True, batch=20)
+        return cycle(sessions)
     finally:
         engine.dispose()
 

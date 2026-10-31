@@ -8,8 +8,7 @@ import pytest
 
 @pytest.mark.parametrize('event,schedule,operation,expected', [
     ('schedule', '50,55 11 * * *', '', 'prepare'),
-    ('schedule', '10,15,30,35 12 * * *', '', 'prepare'),
-    ('schedule', '0,20,40 12 * * *', '', 'run'),
+    ('schedule', '*/5 12 * * *', '', 'run'),
     ('workflow_dispatch', '', 'prepare', 'prepare'),
     ('workflow_dispatch', '', 'run', 'run'),
 ])

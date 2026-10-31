@@ -115,7 +115,11 @@ def connect(url=None):
     if url.startswith("sqlite"):
         Base.metadata.create_all(engine)
     sessions = sessionmaker(engine, expire_on_commit=False)
-    with sessions.begin() as s:
-        if not s.get(Lease, 1):
-            s.add(Lease(id=1, owner="", expires=""))
+    try:
+        with sessions.begin() as s:
+            if not s.get(Lease, 1):
+                s.add(Lease(id=1, owner="", expires=""))
+    except Exception:
+        engine.dispose()
+        raise
     return engine, sessions

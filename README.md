@@ -17,15 +17,15 @@ O SQL em `supabase/schema.sql` é o mesmo da versão anterior: não precisa apag
 
 ## Automação diária
 
-O painel não deve manter uma thread infinita nem depender de navegador aberto. O workflow `.github/workflows/automation.yml` roda o worker Python no GitHub Actions, diretamente conectado ao mesmo Supabase.
+No Windows, `python iniciar.py` abre o painel na porta 8502 e mantém uma rotina Python separada do navegador. Para instalar o início automático diário e no logon, execute uma vez `INSTALAR_CRM2.bat`; veja [WINDOWS_CRM2.md](WINDOWS_CRM2.md). O workflow `.github/workflows/automation.yml` também pode executar a rotina no GitHub Actions, diretamente conectado ao mesmo Supabase. As reservas são compartilhadas entre os dois executores.
 
 No repositório `hello`, abra **Settings → Secrets and variables → Actions → New repository secret**. Nome: **CRM2_SECRETS_TOML**. Conteúdo: **o mesmo bloco TOML** que você colou em Secrets do Streamlit. Isso é necessário porque o GitHub não tem acesso aos Secrets privados do Streamlit. Não use variáveis públicas para esse bloco.
 
-A rotina prepara/verifica o banco às 08:50/08:55 de Brasília e antes dos lotes seguintes, sem captar ou enviar. Os lotes rodam às 09:00, 09:20 e 09:40, até 20 emails por execução e respeitando 30 novos + 30 follow-ups por dia. O worker opera mesmo se o painel Streamlit estiver em repouso; a preparação não é uma promessa de acordar o painel. O GitHub pode atrasar agendamentos; a execução recusa envios automáticos fora de 09h–10h.
+A rotina prepara/verifica o banco a partir de 08:50 de Brasília, sem iniciar buscas ou enviar. Os lotes rodam às 09:00, 09:20 e 09:40, até 20 emails por lote e respeitando 30 novos + 30 follow-ups por dia. O GitHub verifica resultados e horários pendentes a cada cinco minutos durante a janela. O worker opera mesmo se o painel Streamlit estiver em repouso; a preparação não é uma promessa de acordar o painel. O GitHub pode atrasar agendamentos; a execução recusa envios automáticos fora de 09h–10h.
 
-O botão manual de buscar ou enviar executa diretamente, sem aguardar preparação. A busca na fonte é iniciada pelo usuário; o agendamento diário processa emails dos leads já captados, não inicia novas buscas automaticamente.
+O botão manual de buscar ou enviar executa diretamente, sem aguardar preparação. Em Configurações → Automação, defina cidade, nicho e limite da busca diária; na ausência desses campos, a última busca pode fornecer o alvo. Com campanha ativa e válida, a rotina cria no máximo uma busca automática por dia, ou reaproveita uma busca manual do dia/em andamento. Importa somente resultados com email válido e os demais filtros. A criação pode consumir créditos Apify.
 
-Envios dependem de campanha aprovada, habilitada e dentro da validade. A primeira mensagem e os três follow-ups podem ser personalizados antes da ativação. Nenhum email é enviado durante instalação ou ao abrir o painel. Não execute `run` como teste de credenciais; use a operação `prepare` e a sincronização de respostas.
+Envios dependem de campanha aprovada, habilitada e dentro da validade. A primeira mensagem e os três follow-ups podem ser personalizados antes da ativação. Abrir somente o painel não envia emails; iniciar a rotina pelo instalador ou por `iniciar.py` permite executar as operações autorizadas dentro da janela. Não execute `run` como teste de credenciais; use a operação `prepare` e a sincronização de respostas.
 
 ## Desenvolvimento
 

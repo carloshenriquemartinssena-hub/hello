@@ -3,10 +3,9 @@ on:
   schedule:
     # Acordar o serviço às 08:50/08:55 de Brasília, sem disparos.
     - cron: "50,55 11 * * *"
-    # Preparar novamente 5–10 minutos antes dos lotes seguintes.
-    - cron: "10,15,30,35 12 * * *"
-    # Brasília UTC-3: três lotes de até 20, respeitando 30 novos + 30 follow-ups.
-    - cron: "0,20,40 12 * * *"
+    # Verificar/importar a cada 5 minutos durante 09h–10h de Brasília.
+    # As reservas persistidas limitam os envios aos lotes 09:00/09:20/09:40.
+    - cron: "*/5 12 * * *"
   workflow_dispatch:
     inputs:
       operation:
@@ -42,7 +41,7 @@ jobs:
           operation=prepare
           if [ "$EVENT_NAME" = workflow_dispatch ]; then
             operation="$MANUAL_OPERATION"
-          elif [ "$EVENT_SCHEDULE" = "0,20,40 12 * * *" ]; then
+          elif [ "$EVENT_SCHEDULE" = "*/5 12 * * *" ]; then
             operation=run
           fi
           case "$operation" in prepare|run) ;; *) exit 1 ;; esac

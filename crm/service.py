@@ -89,7 +89,7 @@ def sync_inbox(sessions, gmail, owner):
     return count
 
 
-def execute(sessions, selected=None, scheduled=False, gmail_factory=Gmail, clock=None, batch=60, single_test=False):
+def execute(sessions, selected=None, scheduled=False, gmail_factory=Gmail, clock=None, batch=60, single_test=False, should_stop=None):
     if single_test:
         if scheduled or selected is None or len(selected) != 1:
             raise ValueError('O teste real exige exatamente um lead e não pode ser agendado.')
@@ -116,6 +116,8 @@ def execute(sessions, selected=None, scheduled=False, gmail_factory=Gmail, clock
                     q = q.where(Lead.id.in_(selected))
                 ids = list(s.scalars(q))
             for lead_id in ids:
+                if should_stop and should_stop():
+                    break
                 if sent >= batch:
                     break
                 # O relógio real prevalece quando a chamada atravessa o fim da janela.

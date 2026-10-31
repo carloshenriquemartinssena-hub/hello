@@ -1,5 +1,7 @@
 # Publicar o CRM 2 no Streamlit
 
+**Para iniciar pelo terminal e instalar o início automático no Windows**, siga [WINDOWS_CRM2.md](WINDOWS_CRM2.md). Execute uma vez `INSTALAR_CRM2.bat` na pasta atualizada do CRM 2. `python iniciar.py` inicia painel e automação local juntos.
+
 1. Repositório: `carloshenriquemartinssena-hub/hello`; branch: `main`; arquivo principal: **streamlit_app.py** (ou **app.py**); Python: **3.12**.
 2. No app `hello`, abra **Settings → Secrets** e copie `.streamlit/secrets.toml.example`, preenchendo seus valores. O formato é TOML: `CHAVE = "valor"`. Não envie `.env` ao GitHub.
 3. Salve, reinicie o app se necessário e entre com `CRM_ADMIN_PASSWORD`. Não altere o app ou banco do CRM principal.

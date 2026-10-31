@@ -325,6 +325,18 @@ def settings_view():
     st.write('Banco: ' + settings['database'])
     st.dataframe([{'Variável': name, 'Estado': 'Definida' if defined else 'Pendente'} for name, defined in settings['variables'].items()], hide_index=True, width='stretch')
     st.caption('Presença de variável não comprova acesso ao provedor. Valores de credenciais não são exibidos.')
+    cfg = request('GET', '/api/automation/settings')
+    with st.expander('Automação: alvo da captação diária', expanded=True):
+        st.caption('O terminal e o GitHub usam o mesmo alvo e as mesmas reservas. Sem configuração própria, cidade/nicho vêm da última busca. A campanha precisa estar aprovada, habilitada e válida.')
+        with st.form('automation_settings'):
+            enabled = st.checkbox('Captar automaticamente a partir das 09h de Brasília', value=cfg['capture_enabled'])
+            city = st.text_input('Cidade da captação diária', value=cfg['city'])
+            niche = st.text_input('Nicho da captação diária', value=cfg['niche'])
+            limit = st.number_input('Máximo de resultados consultados por dia', min_value=1, max_value=100, value=cfg['limit'])
+            if st.form_submit_button('Salvar automação'):
+                request('PUT', '/api/automation/settings', json={'capture_enabled': enabled, 'city': city, 'niche': niche, 'limit': int(limit)})
+                success('Alvos da automação salvos.')
+        st.caption('Uma criação automática de busca por dia; sem email não há lead importado. A consulta pode consumir créditos Apify. A preparação das 08h50 não inicia busca nem envia emails.')
     if st.button('Sincronizar respostas do Gmail'):
         with st.spinner('Verificando respostas…'):
             result = request('POST', '/api/inbox/sync')
