@@ -27,7 +27,7 @@ def database_diagnostic(error):
     if '42501' in codes:
         return 'DB_PERMISSION', 'O usuário do PostgreSQL não tem permissão nas tabelas. Use a conexão do proprietário fornecida em Connect; não use uma chave anon nem a conexão de outro projeto.'
     if any(marker in text for marker in ('certificate verify failed', 'root certificate file', 'sslrootcert', 'self-signed certificate', 'could not read certificate')):
-        return 'DB_CERTIFICATE', 'Falhou a verificação do certificado SSL. Confira sslrootcert=system. Se o projeto exigir outra raiz, use o certificado oficial do Supabase; não desative a verificação TLS.'
+        return 'DB_CERTIFICATE', 'O certificado do banco não foi validado. Baixe o certificado raiz oficial nas configurações SSL do Supabase e cole o PEM em CRM_DATABASE_CA_CERT, usando aspas triplas nos Secrets. Mantenha sslmode=verify-full.'
     if 'sslmode=verify-full' in text:
         return 'DB_TLS_CONFIG', 'A URI precisa de sslmode=verify-full. Use também sslrootcert=system ou o certificado raiz oficial do projeto.'
     if any(marker in text for marker in ('could not translate host name', 'name or service not known', 'temporary failure in name resolution', 'nodename nor servname')):

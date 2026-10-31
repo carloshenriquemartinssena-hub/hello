@@ -9,3 +9,5 @@ Para a automação, copie o mesmo bloco TOML para um único secret do GitHub Act
 Se senha e tokens estiverem vazios no seu `.env`, execute `python iniciar.py --gerar-acesso`. O comando gera somente os três campos de acesso ausentes/vazios, preserva suas APIs e não imprime valores. Abra `.env` e copie os valores gerados para Secrets, entre aspas. `CRM_ADMIN_PASSWORD` é sua senha para entrar no painel; `CRM_SESSION_SECRET` e `CRM_WORKER_TOKEN` são chaves internas do próprio CRM. Não são fornecidas pelo Gmail ou Supabase. Em Secrets do Streamlit, use `CRM_ENV = "production"`; `CRM_PUBLIC_URL = ""` é válido.
 
 O banco é o PostgreSQL do Supabase, não a URL HTTPS da API. O modelo de Secrets indica o formato correto. Você não precisa de Render, Northflank ou GitHub Pages para este modo.
+
+Se aparecer **DB_CERTIFICATE**, siga [CERTIFICADO_SUPABASE.md](CERTIFICADO_SUPABASE.md): o CRM aceita o certificado raiz oficial como texto multilinha em `CRM_DATABASE_CA_CERT`, sem remover a verificação TLS.

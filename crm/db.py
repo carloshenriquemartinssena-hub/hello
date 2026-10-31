@@ -5,6 +5,7 @@ from pathlib import Path
 from sqlalchemy import Boolean, ForeignKey, Integer, LargeBinary, String, Text, UniqueConstraint, create_engine, event
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
+from .tls import postgres_connect_options
 
 
 def utcnow():
@@ -99,7 +100,7 @@ def connect(url=None):
             raise RuntimeError("Produção requer PostgreSQL exclusivo e sslmode=verify-full")
     if url.startswith("sqlite"):
         Path("data").mkdir(exist_ok=True)
-    engine = create_engine(url, pool_pre_ping=True, connect_args={"check_same_thread": False, "timeout": 30} if url.startswith("sqlite") else {"connect_timeout": 10})
+    engine = create_engine(url, pool_pre_ping=True, connect_args={"check_same_thread": False, "timeout": 30} if url.startswith("sqlite") else postgres_connect_options())
     if url.startswith("sqlite"):
         @event.listens_for(engine, "connect")
         def pragmas(conn, _):
