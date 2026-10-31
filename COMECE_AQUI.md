@@ -1,5 +1,7 @@
 # Conectar o CRM em três passos
 
+**Alternativa ao Render:** veja [NORTHFLANK.md](NORTHFLANK.md). O mesmo código Docker funciona; você só troca a hospedagem e a URL pública, preservando o Supabase e suas credenciais.
+
 **O arquivo é `.env`, sem `.txt` no final.** Ele fica na mesma pasta de `iniciar.py`. Já foi criado neste ambiente; não envie esse arquivo ao GitHub nem compartilhe suas chaves no chat.
 
 1. Abra `.env` e preencha:
