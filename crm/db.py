@@ -99,7 +99,7 @@ def connect(url=None):
             raise RuntimeError("Produção requer PostgreSQL exclusivo e sslmode=verify-full")
     if url.startswith("sqlite"):
         Path("data").mkdir(exist_ok=True)
-    engine = create_engine(url, pool_pre_ping=True, connect_args={"check_same_thread": False, "timeout": 30} if url.startswith("sqlite") else {})
+    engine = create_engine(url, pool_pre_ping=True, connect_args={"check_same_thread": False, "timeout": 30} if url.startswith("sqlite") else {"connect_timeout": 10})
     if url.startswith("sqlite"):
         @event.listens_for(engine, "connect")
         def pragmas(conn, _):

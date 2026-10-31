@@ -11,6 +11,7 @@ import streamlit.components.v1 as components
 from .environment import load_environment
 from .secrets_config import apply_secrets, validate_panel_security, requires_login, validate_database_settings, ConfigurationError
 from .streamlit_bridge import APIError, LocalAPI
+from .diagnostics import database_diagnostic
 
 STATUS = {'novo': 'Novo', 'em_cadencia': 'Em cadência', 'respondeu': 'Respondeu',
           'negociacao': 'Em negociação', 'ganho': 'Convertido', 'pausado': 'Pausado',
@@ -56,8 +57,9 @@ def login():
             return
         except (ConfigurationError, APIError) as exc:
             st.error(str(exc))
-        except Exception:
-            st.error('Não foi possível conectar ao banco. Confira a URI PostgreSQL, a senha atual e o SQL do CRM 2 no Supabase.')
+        except Exception as exc:
+            code, message = database_diagnostic(exc)
+            st.error(f'[{code}] {message}')
         st.stop()
     st.title('Vértice · CRM Brasil')
     st.caption('Uma operação exclusiva. Seu próximo negócio começa aqui.')
@@ -82,8 +84,9 @@ def login():
                 st.rerun()
             except (APIError, ConfigurationError) as exc:
                 st.error(str(exc))
-            except Exception:
-                st.error('Não foi possível conectar ao banco. Confira CRM_DATABASE_URL e o SQL do Supabase em Secrets.')
+            except Exception as exc:
+                code, message = database_diagnostic(exc)
+                st.error(f'[{code}] {message}')
     st.stop()
 
 

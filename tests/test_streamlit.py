@@ -113,3 +113,23 @@ def test_database_diagnosis_does_not_expose_connection_credentials(monkeypatch):
     assert 'private-test-password' not in str(error.value)
     monkeypatch.setenv('CRM_DATABASE_URL', 'postgresql://example_user:private-test-password@example.invalid:5432/postgres?sslmode=verify-full&sslrootcert=system')
     validate_database_settings()  # Não abre conexão nem acessa rede.
+
+
+@pytest.mark.parametrize('require_login', ['true', 'false'])
+def test_streamlit_shows_safe_specific_database_failure(streamlit_app, monkeypatch, require_login):
+    from sqlalchemy.exc import ProgrammingError
+    from crm import streamlit_ui
+    class MissingTable(Exception):
+        sqlstate = '42P01'
+    def broken_application():
+        raise ProgrammingError(None, None, MissingTable('private-driver-detail'))
+    monkeypatch.setenv('CRM_REQUIRE_LOGIN', require_login)
+    monkeypatch.setattr(streamlit_ui, 'application', broken_application)
+    path = Path(__file__).resolve().parents[1] / 'streamlit_app.py'
+    at = AppTest.from_file(str(path), default_timeout=15).run()
+    if require_login == 'true':
+        widget(at.text_input, 'Senha do administrador').set_value(PASSWORD)
+        widget(at.button, 'Entrar').click().run()
+    assert not at.exception
+    assert any('[DB_TABLES]' in x.value for x in at.error)
+    assert not any('private-driver-detail' in x.value for x in at.error)
