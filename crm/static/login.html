@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Entrar · Vértice CRM</title>
+    <link rel="stylesheet" href="/static/app.css" />
+    <link rel="icon" href="/static/favicon.svg" />
+    <script src="/static/login.js" defer></script>
+  </head>
+  <body class="login-page">
+    <main class="login-card">
+      <a class="brand" href="/"
+        ><span class="brand-symbol">v</span
+        ><span>vértice<span class="brand-caption">CRM BRASIL</span></span></a
+      >
+      <p class="eyebrow">BEM-VINDO DE VOLTA</p>
+      <h1>Seu próximo negócio<br />começa aqui.</h1>
+      <p class="muted">Entre para cuidar da sua operação Brasil.</p>
+      <form method="post" id="login-form">
+        <label
+          >Senha do administrador<input
+            type="password"
+            name="password"
+            required
+            autocomplete="current-password"
+            autofocus
+        /></label>
+        <p id="login-error" class="form-error" role="alert"></p>
+        <button type="submit" class="button primary">
+          Entrar no meu espaço →
+        </button>
+      </form>
+      <small>Uma base exclusiva. Uma operação independente.</small>
+    </main>
+  </body>
+</html>

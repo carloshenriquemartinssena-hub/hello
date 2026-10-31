@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#f6f8f7" />
+    <title>Vértice · CRM Brasil</title>
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/static/app.css" />
+    <script src="/static/app.js" defer></script>
+  </head>
+  <body>
+    <aside class="sidebar" id="sidebar">
+      <a class="brand" href="#overview"
+        ><span class="brand-symbol">v</span
+        ><span>vértice<span class="brand-caption">CRM BRASIL</span></span
+        ><span class="brand-dot"></span
+      ></a>
+      <div class="workspace">
+        <span class="workspace-avatar">BR</span>
+        <div>
+          <strong>Operação Brasil</strong><small>Seu próximo crescimento</small>
+        </div>
+        <span class="workspace-arrow">⌄</span>
+      </div>
+      <p class="nav-label">ESPAÇO DE TRABALHO</p>
+      <nav aria-label="Navegação principal">
+        <a href="#overview" data-nav="overview"
+          ><span data-icon="grid"></span>Visão geral</a
+        >
+        <a href="#leads" data-nav="leads"
+          ><span data-icon="users"></span>Meus leads<span
+            class="nav-count"
+            id="nav-count"
+            >0</span
+          ></a
+        >
+        <a href="#capture" data-nav="capture"
+          ><span data-icon="compass"></span>Encontrar empresas<span
+            class="new-dot"
+          ></span
+        ></a>
+        <a href="#campaign" data-nav="campaign"
+          ><span data-icon="mail"></span>Campanha & cadência</a
+        >
+        <a href="#activity" data-nav="activity"
+          ><span data-icon="clock"></span>Atividades</a
+        >
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="independent-card">
+          <span data-icon="shield"></span><strong>Uma operação só sua</strong>
+          <p>Base, campanha e automação independentes do CRM principal.</p>
+        </div>
+        <a href="#settings" data-nav="settings"
+          ><span data-icon="settings"></span>Configurações</a
+        ><button class="theme-button" id="theme-toggle">
+          <span data-icon="moon"></span
+          ><span id="theme-label">Mudar para tema escuro</span
+          ><span class="theme-switch"></span>
+        </button>
+        <div class="profile">
+          <span class="profile-avatar">MV</span>
+          <div><strong>Max Virelli</strong><small>Administrador</small></div>
+          <button
+            class="icon-button"
+            data-action="logout"
+            aria-label="Sair"
+            title="Sair"
+          >
+            <span data-icon="logout"></span>
+          </button>
+        </div>
+      </div>
+    </aside>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="breadcrumbs">
+          <button
+            class="icon-button mobile-menu"
+            data-action="menu"
+            aria-label="Abrir navegação"
+          >
+            <span data-icon="menu"></span></button
+          ><span data-icon="home"></span><span class="breadcrumb-slash">/</span
+          ><span id="breadcrumb">Visão geral</span>
+        </div>
+        <div class="topbar-right">
+          <span class="region"
+            ><span class="brazil-dot"></span>Brasil
+            <span class="muted">· Brasília</span></span
+          ><span class="topbar-divider"></span
+          ><button
+            class="icon-button"
+            data-action="refresh"
+            aria-label="Atualizar dados"
+            title="Atualizar dados"
+          >
+            <span data-icon="refresh"></span></button
+          ><span class="small-avatar">MV</span>
+        </div>
+      </header>
+      <main id="main" tabindex="-1">
+        <div class="loading-state">Preparando seu espaço de trabalho…</div>
+      </main>
+      <footer class="app-footer">
+        <span
+          ><span class="tiny-dot"></span>Vértice CRM · Uma conexão de cada
+          vez.</span
+        ><span>Feito para negócios no Brasil <span class="flag">🇧🇷</span></span>
+      </footer>
+    </div>
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+    <dialog id="lead-dialog">
+      <form method="post" id="lead-form">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">SUA BASE DE CONTATOS</p>
+            <h2 id="lead-dialog-title">Adicionar lead</h2>
+          </div>
+          <button
+            type="button"
+            class="icon-button"
+            data-action="close-dialog"
+            aria-label="Fechar"
+          >
+            ×
+          </button>
+        </div>
+        <input type="hidden" name="id" />
+        <div class="form-grid">
+          <label class="span-two"
+            >Nome da empresa<input
+              name="name"
+              required
+              minlength="2"
+              maxlength="200"
+              placeholder="Ex.: Clínica Sorriso" /></label
+          ><label
+            >Email comercial<input
+              name="email"
+              type="email"
+              placeholder="contato@empresa.com.br" /></label
+          ><label
+            >Telefone / WhatsApp<input
+              name="phone"
+              placeholder="(11) 99999-9999" /></label
+          ><label
+            >Cidade / UF<input name="city" placeholder="São Paulo, SP" /></label
+          ><label
+            >Nicho<input
+              name="niche"
+              list="niche-list"
+              placeholder="Clínicas odontológicas" /></label
+          ><label
+            >Avaliações no Google<input
+              name="reviews"
+              type="number"
+              min="0"
+              max="1000000"
+              value="0" /></label
+          ><label
+            >Nota no Google<input
+              name="rating"
+              maxlength="10"
+              placeholder="4.8" /></label
+          ><label
+            >Instagram<input
+              name="instagram"
+              type="url"
+              placeholder="https://instagram.com/…" /></label
+          ><label
+            >Facebook<input
+              name="facebook"
+              type="url"
+              placeholder="https://facebook.com/…" /></label
+          ><label class="span-two"
+            >Link de origem (Google Maps)<input
+              name="source_url"
+              type="url"
+              placeholder="https://maps.google.com/…" /></label
+          ><label class="span-two"
+            >Notas<textarea
+              name="notes"
+              rows="3"
+              maxlength="5000"
+              placeholder="Contexto para uma conversa mais relevante…"
+            ></textarea>
+          </label>
+        </div>
+        <p id="lead-error" class="form-error" role="alert"></p>
+        <div class="dialog-footer">
+          <button
+            type="button"
+            class="button secondary"
+            data-action="close-dialog"
+          >
+            Cancelar</button
+          ><button type="submit" class="button primary">Salvar lead</button>
+        </div>
+      </form>
+    </dialog>
+    <dialog id="confirm-dialog">
+      <div class="dialog-header">
+        <h2 id="confirm-title">Confirmar ação</h2>
+        <button
+          class="icon-button"
+          data-action="close-confirm"
+          aria-label="Fechar"
+        >
+          ×
+        </button>
+      </div>
+      <p id="confirm-message" class="confirm-message"></p>
+      <div class="dialog-footer">
+        <button class="button secondary" data-action="close-confirm">
+          Cancelar</button
+        ><button class="button primary" id="confirm-button">Confirmar</button>
+      </div>
+    </dialog>
+    <datalist id="niche-list"></datalist
+    ><input type="file" id="csv-input" accept=".csv,text/csv" hidden />
+  </body>
+</html>

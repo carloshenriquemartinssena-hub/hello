@@ -1,0 +1,26 @@
+name: CRM Brasil · Rotina diária
+on:
+  schedule:
+    # Brasília UTC-3: três lotes de até 20, respeitando 30 novos + 30 follow-ups.
+    - cron: "0,20,40 12 * * *"
+  workflow_dispatch:
+permissions: {}
+concurrency:
+  group: crm2-brasil-automation
+  cancel-in-progress: false
+jobs:
+  daily:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Executar rotina protegida no backend
+        env:
+          CRM_BASE_URL: ${{ secrets.CRM_BASE_URL }}
+          CRM_WORKER_TOKEN: ${{ secrets.CRM_WORKER_TOKEN }}
+        run: |
+          test -n "$CRM_BASE_URL" && test -n "$CRM_WORKER_TOKEN"
+          case "$CRM_BASE_URL" in https://*) ;; *) exit 1 ;; esac
+          curl --fail-with-body --silent --show-error --max-time 540 \
+            --request POST \
+            --header "Authorization: Bearer $CRM_WORKER_TOKEN" \
+            "${CRM_BASE_URL%/}/api/automation/run"

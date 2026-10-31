@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: vertice-crm-brasil
+    runtime: docker
+    plan: starter
+    healthCheckPath: /healthz
+    envVars:
+      - key: CRM_ENV
+        value: production
+      - key: CRM_DATABASE_URL
+        sync: false
+      - key: CRM_PUBLIC_URL
+        sync: false
+      - key: CRM_ADMIN_PASSWORD
+        sync: false
+      - key: CRM_SESSION_SECRET
+        generateValue: true
+      - key: CRM_WORKER_TOKEN
+        generateValue: true
+      - key: CRM_APIFY_TOKEN
+        sync: false
+      - key: CRM_GMAIL_CLIENT_ID
+        sync: false
+      - key: CRM_GMAIL_CLIENT_SECRET
+        sync: false
+      - key: CRM_GMAIL_REFRESH_TOKEN
+        sync: false
