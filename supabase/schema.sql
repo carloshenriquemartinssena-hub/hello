@@ -5,10 +5,10 @@ SET LOCAL search_path = public;
 
 
 CREATE TABLE IF NOT EXISTS crm2_activity (
-	id SERIAL NOT NULL, 
-	kind VARCHAR(40) NOT NULL, 
-	detail TEXT NOT NULL, 
-	created_at VARCHAR(40) NOT NULL, 
+	id SERIAL NOT NULL,
+	kind VARCHAR(40) NOT NULL,
+	detail TEXT NOT NULL,
+	created_at VARCHAR(40) NOT NULL,
 	PRIMARY KEY (id)
 );
 
@@ -18,11 +18,11 @@ REVOKE ALL ON TABLE public.crm2_activity FROM anon, authenticated;
 
 
 CREATE TABLE IF NOT EXISTS crm2_attachments (
-	id SERIAL NOT NULL, 
-	name VARCHAR(200) NOT NULL, 
-	content_type VARCHAR(100) NOT NULL, 
-	data BYTEA NOT NULL, 
-	inline BOOLEAN NOT NULL, 
+	id SERIAL NOT NULL,
+	name VARCHAR(200) NOT NULL,
+	content_type VARCHAR(100) NOT NULL,
+	data BYTEA NOT NULL,
+	inline BOOLEAN NOT NULL,
 	PRIMARY KEY (id)
 );
 
@@ -32,8 +32,8 @@ REVOKE ALL ON TABLE public.crm2_attachments FROM anon, authenticated;
 
 
 CREATE TABLE IF NOT EXISTS crm2_config (
-	key VARCHAR(100) NOT NULL, 
-	value TEXT NOT NULL, 
+	key VARCHAR(100) NOT NULL,
+	value TEXT NOT NULL,
 	PRIMARY KEY (key)
 );
 
@@ -43,29 +43,29 @@ REVOKE ALL ON TABLE public.crm2_config FROM anon, authenticated;
 
 
 CREATE TABLE IF NOT EXISTS crm2_leads (
-	id SERIAL NOT NULL, 
-	name VARCHAR(200) NOT NULL, 
-	email VARCHAR(254), 
-	phone VARCHAR(20), 
-	place_id VARCHAR(250), 
-	city VARCHAR(160) NOT NULL, 
-	niche VARCHAR(120) NOT NULL, 
-	reviews INTEGER NOT NULL, 
-	rating VARCHAR(10) NOT NULL, 
-	instagram VARCHAR(500) NOT NULL, 
-	facebook VARCHAR(500) NOT NULL, 
-	source_url VARCHAR(1000) NOT NULL, 
-	notes TEXT NOT NULL, 
-	status VARCHAR(30) NOT NULL, 
-	stage INTEGER NOT NULL, 
-	first_sent VARCHAR(40), 
-	next_send VARCHAR(40), 
-	thread_id VARCHAR(200), 
-	deleted BOOLEAN NOT NULL, 
-	created_at VARCHAR(40) NOT NULL, 
-	PRIMARY KEY (id), 
-	UNIQUE (email), 
-	UNIQUE (phone), 
+	id SERIAL NOT NULL,
+	name VARCHAR(200) NOT NULL,
+	email VARCHAR(254),
+	phone VARCHAR(20),
+	place_id VARCHAR(250),
+	city VARCHAR(160) NOT NULL,
+	niche VARCHAR(120) NOT NULL,
+	reviews INTEGER NOT NULL,
+	rating VARCHAR(10) NOT NULL,
+	instagram VARCHAR(500) NOT NULL,
+	facebook VARCHAR(500) NOT NULL,
+	source_url VARCHAR(1000) NOT NULL,
+	notes TEXT NOT NULL,
+	status VARCHAR(30) NOT NULL,
+	stage INTEGER NOT NULL,
+	first_sent VARCHAR(40),
+	next_send VARCHAR(40),
+	thread_id VARCHAR(200),
+	deleted BOOLEAN NOT NULL,
+	created_at VARCHAR(40) NOT NULL,
+	PRIMARY KEY (id),
+	UNIQUE (email),
+	UNIQUE (phone),
 	UNIQUE (place_id)
 );
 
@@ -79,9 +79,9 @@ REVOKE ALL ON TABLE public.crm2_leads FROM anon, authenticated;
 
 
 CREATE TABLE IF NOT EXISTS crm2_lease (
-	id SERIAL NOT NULL, 
-	owner VARCHAR(40) NOT NULL, 
-	expires VARCHAR(40) NOT NULL, 
+	id SERIAL NOT NULL,
+	owner VARCHAR(40) NOT NULL,
+	expires VARCHAR(40) NOT NULL,
 	PRIMARY KEY (id)
 );
 
@@ -91,9 +91,9 @@ REVOKE ALL ON TABLE public.crm2_lease FROM anon, authenticated;
 
 
 CREATE TABLE IF NOT EXISTS crm2_suppressions (
-	email VARCHAR(254) NOT NULL, 
-	reason VARCHAR(50) NOT NULL, 
-	created_at VARCHAR(40) NOT NULL, 
+	email VARCHAR(254) NOT NULL,
+	reason VARCHAR(50) NOT NULL,
+	created_at VARCHAR(40) NOT NULL,
 	PRIMARY KEY (email)
 );
 
@@ -103,16 +103,16 @@ REVOKE ALL ON TABLE public.crm2_suppressions FROM anon, authenticated;
 
 
 CREATE TABLE IF NOT EXISTS crm2_dispatches (
-	id SERIAL NOT NULL, 
-	lead_id INTEGER NOT NULL, 
-	stage INTEGER NOT NULL, 
-	day VARCHAR(10) NOT NULL, 
-	state VARCHAR(30) NOT NULL, 
-	message_id VARCHAR(200), 
-	thread_id VARCHAR(200), 
-	created_at VARCHAR(40) NOT NULL, 
-	PRIMARY KEY (id), 
-	UNIQUE (lead_id, stage), 
+	id SERIAL NOT NULL,
+	lead_id INTEGER NOT NULL,
+	stage INTEGER NOT NULL,
+	day VARCHAR(10) NOT NULL,
+	state VARCHAR(30) NOT NULL,
+	message_id VARCHAR(200),
+	thread_id VARCHAR(200),
+	created_at VARCHAR(40) NOT NULL,
+	PRIMARY KEY (id),
+	UNIQUE (lead_id, stage),
 	FOREIGN KEY(lead_id) REFERENCES crm2_leads (id)
 );
 
