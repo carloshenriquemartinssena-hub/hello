@@ -9,7 +9,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 from .environment import load_environment
-from .secrets_config import apply_secrets, validate_panel_security
+from .secrets_config import apply_secrets, validate_panel_security, requires_login, validate_database_settings, ConfigurationError
 from .streamlit_bridge import APIError, LocalAPI
 
 STATUS = {'novo': 'Novo', 'em_cadencia': 'Em cadência', 'respondeu': 'Respondeu',
@@ -19,6 +19,7 @@ STATUS = {'novo': 'Novo', 'em_cadencia': 'Em cadência', 'respondeu': 'Respondeu
 
 @st.cache_resource
 def application():
+    validate_database_settings()
     from .main import app
     return app
 
@@ -46,6 +47,18 @@ def login():
     fingerprint = hmac.digest(os.environ['CRM_SESSION_SECRET'].encode(), expected.encode(), 'sha256').hex()
     if st.session_state.get('auth_fingerprint') == fingerprint:
         return
+    if not requires_login():
+        # O acesso ao painel deve ser restrito pela privacidade do Streamlit Cloud.
+        # A autenticação interna da API continua ativa; o navegador não recebe a senha.
+        try:
+            request('POST', '/auth/login', json={'password': expected})
+            st.session_state.auth_fingerprint = fingerprint
+            return
+        except (ConfigurationError, APIError) as exc:
+            st.error(str(exc))
+        except Exception:
+            st.error('Não foi possível conectar ao banco. Confira a URI PostgreSQL, a senha atual e o SQL do CRM 2 no Supabase.')
+        st.stop()
     st.title('Vértice · CRM Brasil')
     st.caption('Uma operação exclusiva. Seu próximo negócio começa aqui.')
     with st.form('login', clear_on_submit=True):
@@ -67,7 +80,7 @@ def login():
                 request('POST', '/auth/login', json={'password': password})
                 st.session_state.auth_fingerprint = fingerprint
                 st.rerun()
-            except APIError as exc:
+            except (APIError, ConfigurationError) as exc:
                 st.error(str(exc))
             except Exception:
                 st.error('Não foi possível conectar ao banco. Confira CRM_DATABASE_URL e o SQL do Supabase em Secrets.')
@@ -277,7 +290,7 @@ def main():
         nav = st.radio('Espaço de trabalho', ['Visão geral', 'Meus leads', 'Encontrar empresas', 'Campanha & cadência', 'Atividades', 'Configurações'])
         theme = st.radio('Tema', ['Claro', 'Escuro'], horizontal=True)
         st.caption('Base e automação independentes do CRM principal.')
-        if st.button('Sair'):
+        if st.button('Sair' if requires_login() else 'Reiniciar sessão'):
             st.session_state.pop('auth_fingerprint', None)
             st.session_state.pop('api_cookies', None)
             st.rerun()

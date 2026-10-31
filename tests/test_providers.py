@@ -73,3 +73,15 @@ def test_oauth_failure_does_not_expose_provider_secret(monkeypatch):
     with pytest.raises(ProviderError) as e:
         gmail_mock(monkeypatch,handler)
     assert 'never-display' not in str(e.value)
+
+
+def test_apify_url_is_rejected_without_network_or_token_disclosure(monkeypatch):
+    from crm.providers import Apify
+    monkeypatch.setenv('CRM_APIFY_TOKEN', 'https://api.apify.com/v2/actors?token=test-private-value')
+    def forbidden(**kwargs):
+        raise AssertionError('Não deve criar cliente com URL em vez de token')
+    monkeypatch.setattr('crm.providers.httpx.Client', forbidden)
+    with pytest.raises(ProviderError) as error:
+        Apify()
+    assert 'somente o token' in str(error.value)
+    assert 'test-private-value' not in str(error.value)

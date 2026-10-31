@@ -45,3 +45,9 @@ O código FastAPI/Docker continua disponível para uma eventual migração futur
 - Email, telefone e redes são importados quando a fonte retorna dados reais; emails ausentes exigem enriquecimento manual. Não há disparos automáticos de WhatsApp.
 - Acesso às APIs, entrega de emails e execução na sua conta só podem ser confirmados após configurar suas credenciais e publicar. Não confunda testes locais com implantação concluída.
 - Exclusões e bloqueios preservam histórico. Timeout de envio mantém a reserva e pausa o contato; não remova reservas para tentar reenviar. Qualquer resposta detectada interrompe a sequência.
+
+## Painel pessoal sem digitar senha
+
+Por padrão, o painel pede senha. Para usar somente a restrição de acesso do Streamlit Cloud, deixe o app **privado** nas configurações de compartilhamento e adicione `CRM_REQUIRE_LOGIN = false` em Secrets. Essa opção dispensa a tela de login do CRM, mas não configura nem verifica a privacidade da plataforma. Se o app estiver público, visitantes poderão acessar e operar o CRM. As chaves internas `CRM_ADMIN_PASSWORD`, `CRM_SESSION_SECRET` e `CRM_WORKER_TOKEN` continuam necessárias; apenas não precisam ser digitadas ao abrir o painel. O backend ASGI mantém a autenticação interna.
+
+Se aparecer erro de banco, confira primeiro a URI PostgreSQL e o sufixo `?sslmode=verify-full&sslrootcert=system`. Sem parâmetros SSL, a aplicação recusa a conexão em produção antes de acessar a rede. Se já existir `?` na URI, acrescente parâmetros com `&`. O token do Apify deve ser apenas o token, nunca a URL de uma chamada da API. Em Secrets, coloque os valores de texto entre aspas.

@@ -109,7 +109,10 @@ class Gmail:
 
 class Apify:
     def __init__(self):
-        self.client = httpx.Client(base_url="https://api.apify.com/v2/", headers={"Authorization": "Bearer " + required("CRM_APIFY_TOKEN")}, timeout=40)
+        token = required('CRM_APIFY_TOKEN').strip()
+        if token.startswith(('http://', 'https://')):
+            raise ProviderError('CRM_APIFY_TOKEN deve conter somente o token do Apify, não uma URL com ?token=.')
+        self.client = httpx.Client(base_url="https://api.apify.com/v2/", headers={"Authorization": "Bearer " + token}, timeout=40)
 
     def close(self):
         self.client.close()

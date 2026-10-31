@@ -15,6 +15,7 @@ def streamlit_app(tmp_path, monkeypatch):
     from crm.main import create_app
     from crm import streamlit_ui
     monkeypatch.setenv('CRM_ENV', 'development')
+    monkeypatch.setenv('CRM_REQUIRE_LOGIN', 'true')
     monkeypatch.setenv('CRM_ADMIN_PASSWORD', PASSWORD)
     monkeypatch.setenv('CRM_SESSION_SECRET', 's' * 40)
     monkeypatch.setenv('CRM_WORKER_TOKEN', 'w' * 40)
@@ -88,3 +89,27 @@ def test_worker_prepares_without_open_panel_or_sending(app, monkeypatch):
         raise AssertionError('Preparação não pode enviar')
     monkeypatch.setattr(module, 'execute', forbidden)
     assert module.run('prepare') == {'status': 'prepared', 'database': 'ok', 'emails_sent': 0, 'capture_started': False}
+
+
+def test_private_streamlit_mode_skips_password_prompt_but_keeps_internal_auth(streamlit_app, monkeypatch):
+    monkeypatch.setenv('CRM_REQUIRE_LOGIN', 'false')
+    path = Path(__file__).resolve().parents[1] / 'streamlit_app.py'
+    at = AppTest.from_file(str(path), default_timeout=15).run()
+    assert not at.exception and not at.error
+    assert not any(x.label == 'Senha do administrador' for x in at.text_input)
+    assert widget(at.radio, 'Espaço de trabalho')
+    assert widget(at.button, 'Reiniciar sessão')
+    with pytest.raises(APIError):
+        LocalAPI(streamlit_app).request('GET', '/api/dashboard')
+
+
+def test_database_diagnosis_does_not_expose_connection_credentials(monkeypatch):
+    from crm.secrets_config import ConfigurationError, validate_database_settings
+    monkeypatch.setenv('CRM_ENV', 'production')
+    monkeypatch.setenv('CRM_DATABASE_URL', 'postgresql://example_user:private-test-password@example.invalid:5432/postgres')
+    with pytest.raises(ConfigurationError) as error:
+        validate_database_settings()
+    assert 'sslmode=verify-full' in str(error.value)
+    assert 'private-test-password' not in str(error.value)
+    monkeypatch.setenv('CRM_DATABASE_URL', 'postgresql://example_user:private-test-password@example.invalid:5432/postgres?sslmode=verify-full&sslrootcert=system')
+    validate_database_settings()  # Não abre conexão nem acessa rede.
