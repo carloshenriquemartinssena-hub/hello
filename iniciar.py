@@ -23,6 +23,20 @@ def create_environment(root=ROOT):
     return True
 
 
+def fill_access_values(root=ROOT):
+    """Preenche apenas campos privados ausentes/vazios, sem rotacionar valores."""
+    from dotenv import dotenv_values, set_key
+    create_environment(root)
+    target = root / '.env'
+    values = dotenv_values(target, interpolate=False)
+    filled = []
+    for name in ('CRM_ADMIN_PASSWORD', 'CRM_SESSION_SECRET', 'CRM_WORKER_TOKEN'):
+        if not (values.get(name) or '').strip():
+            set_key(target, name, secrets.token_urlsafe(36), quote_mode='always')
+            filled.append(name)
+    return filled
+
+
 def verify():
     from sqlalchemy import create_engine, inspect, text
     from sqlalchemy.engine import make_url
@@ -83,6 +97,7 @@ def verify():
 def main():
     parser = argparse.ArgumentParser(description="Iniciar ou verificar o CRM Brasil")
     parser.add_argument("--verificar", action="store_true")
+    parser.add_argument("--gerar-acesso", action="store_true", help="Preenche senha/tokens vazios no .env sem mostrar valores nem iniciar o servidor")
     parser.add_argument("--port", type=int, default=8001)
     args = parser.parse_args()
     os.chdir(ROOT)
@@ -93,6 +108,12 @@ def main():
         import uvicorn
     except ImportError:
         raise SystemExit("Instale as dependências: python -m pip install -r requirements.txt")
+    filled = fill_access_values()
+    if filled:
+        print('Campos de acesso preenchidos no .env: ' + ', '.join(filled) + '. Valores não são exibidos.')
+    if args.gerar_acesso:
+        print('Abra o .env e copie os três valores de acesso para Secrets do Streamlit, entre aspas. Os valores existentes foram preservados. Nenhum servidor foi iniciado ou email enviado.')
+        return
     load_environment()
     if args.verificar:
         raise SystemExit(0 if verify() else 2)

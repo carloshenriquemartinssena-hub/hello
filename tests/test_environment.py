@@ -1,7 +1,7 @@
 import os
 
 from crm.environment import load_environment
-from iniciar import create_environment, verify
+from iniciar import create_environment, fill_access_values, verify
 
 
 def test_private_env_is_created_once_without_overwriting(tmp_path):
@@ -15,6 +15,24 @@ def test_private_env_is_created_once_without_overwriting(tmp_path):
     if os.name == 'posix':
         assert target.stat().st_mode & 0o777 == 0o600
     assert not create_environment(tmp_path)
+    assert target.read_text() == first
+
+
+def test_access_generation_fills_existing_empty_fields_and_preserves_other_values(tmp_path):
+    from dotenv import dotenv_values
+    target = tmp_path / '.env'
+    target.write_text('CRM_ADMIN_PASSWORD=\nCRM_SESSION_SECRET="existing-session-value"\nCRM_WORKER_TOKEN=\nCRM_APIFY_TOKEN="test-existing-provider"\nCRM_ENV=development\n')
+    filled = fill_access_values(tmp_path)
+    assert filled == ['CRM_ADMIN_PASSWORD', 'CRM_WORKER_TOKEN']
+    values = dotenv_values(target)
+    assert len(values['CRM_ADMIN_PASSWORD']) >= 32
+    assert len(values['CRM_WORKER_TOKEN']) >= 32
+    assert values['CRM_ADMIN_PASSWORD'] != values['CRM_WORKER_TOKEN']
+    assert values['CRM_SESSION_SECRET'] == 'existing-session-value'
+    assert values['CRM_APIFY_TOKEN'] == 'test-existing-provider'
+    assert values['CRM_ENV'] == 'development'
+    first = target.read_text()
+    assert fill_access_values(tmp_path) == []
     assert target.read_text() == first
 
 
