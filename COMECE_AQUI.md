@@ -11,3 +11,11 @@ Se senha e tokens estiverem vazios no seu `.env`, execute `python iniciar.py --g
 O banco é o PostgreSQL do Supabase, não a URL HTTPS da API. O modelo de Secrets indica o formato correto. Você não precisa de Render, Northflank ou GitHub Pages para este modo.
 
 Se aparecer **DB_CERTIFICATE**, siga [CERTIFICADO_SUPABASE.md](CERTIFICADO_SUPABASE.md): o CRM aceita o certificado raiz oficial como texto multilinha em `CRM_DATABASE_CA_CERT`, sem remover a verificação TLS.
+
+## Teste completo com uma empresa real
+
+Em Encontrar empresas, busque 25 resultados para um nicho/cidade e clique Atualizar resultado até concluir. A consulta pode consumir créditos Apify. Em Campanha & cadência, salve a mensagem inicial e a validade da oferta; a campanha geral pode continuar pausada. Em Meus leads, marque uma empresa nova com email válido e abra **Teste real: somente 1 email, sem follow-ups**. Confira destino, texto e anexos; confirme e use **Enviar teste real de 1 empresa**. A aprovação desse botão vale somente para esse envio inicial, não habilita a campanha geral nem aprova os outros textos.
+
+O teste respeita cotas e bloqueios, envia no máximo um email inicial e pausa o contato sem agendar follow-ups. Repetir o clique no mesmo contato não envia novamente. Se a fonte não fornecer email, o teste não envia nada; não invente endereços. Se houver timeout de envio, confira Gmail Enviados antes de qualquer ação: o sistema mantém a reserva e não repete automaticamente.
+
+O resultado de envio confirmado pelo Gmail não comprova entrega na caixa de entrada ou leitura pelo destinatário. Verifique Atividades e a pasta Enviados. As credenciais nos Secrets do Streamlit/GitHub não ficam acessíveis ao assistente nesta conversa; esta preparação não representa execução de um teste real na sua conta.

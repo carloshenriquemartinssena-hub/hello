@@ -176,6 +176,24 @@ def leads():
                 success(f"{result['sent']} email(s). {result['reason']}")
     else:
         st.info('Nenhum lead encontrado. Adicione um contato ou faça uma captação.')
+    with st.expander('Teste real: somente 1 email, sem follow-ups'):
+        st.caption('Primeiro, faça uma captação em Encontrar empresas e atualize o resultado. Selecione nesta tabela apenas uma empresa nova com email real. Este teste não habilita a campanha geral.')
+        if len(selected) == 1:
+            target = next(x for x in rows if x['id'] == selected[0])
+            st.write('Empresa: ' + target['name'])
+            st.write('Destino: ' + (target['email'] or 'Sem email — teste indisponível'))
+            preview = request('GET', f"/api/preview/0?lead_id={target['id']}")
+            st.write('Assunto: ' + preview['subject'])
+            st.text(preview['plain'])
+            st.caption('Configure início e fim da oferta em Campanha & cadência antes de testar. Anexos salvos na campanha também serão enviados.')
+            confirmation = st.checkbox('Revisei o texto salvo e confirmo enviar 1 email real para esta empresa, sem follow-ups', key=f"confirm_single_test_{target['id']}")
+            eligible = bool(target['email']) and target['stage'] == -1 and target['status'] == 'novo'
+            if st.button('Enviar teste real de 1 empresa', type='primary', disabled=not eligible or not confirmation):
+                with st.spinner('Verificando Gmail, respostas e limite diário; enviando no máximo 1 mensagem…'):
+                    result = request('POST', '/api/send/test-one', json={'lead_id': target['id'], 'confirmed': True})
+                success(f"{result['sent']} email(s). {result['reason']}")
+        else:
+            st.info('Marque exatamente uma empresa na coluna Selecionar da tabela acima.')
     with st.expander('Adicionar lead'):
         lead_form()
     if rows:

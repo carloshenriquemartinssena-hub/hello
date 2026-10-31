@@ -277,11 +277,13 @@ def create_app(database_url=None):
         return data.model_dump()
 
     @app.get("/api/preview/{stage}", dependencies=[Depends(authorized)])
-    def preview(stage: int):
+    def preview(stage: int, lead_id: int | None = None):
         if stage not in range(4):
             raise HTTPException(404)
         with sessions() as s:
-            sample = Lead(name="Empresa Exemplo", city="São Paulo")
+            sample = s.get(Lead, lead_id) if lead_id is not None else Lead(name="Empresa Exemplo", city="São Paulo")
+            if sample is None or (lead_id is not None and sample.deleted):
+                raise HTTPException(404, 'Lead não encontrado')
             subject, plain, content = render_message(campaign(s), sample, stage)
             return {"subject": subject, "plain": plain, "html": content}
 
@@ -347,6 +349,16 @@ def create_app(database_url=None):
     @app.post("/api/send", dependencies=[Depends(authorized)])
     def send(data: SendSelection):
         return execute(sessions, selected=data.ids)
+
+    class SingleTest(BaseModel):
+        lead_id: int = Field(ge=1)
+        confirmed: bool = False
+
+    @app.post('/api/send/test-one', dependencies=[Depends(authorized)])
+    def send_single_test(data: SingleTest):
+        if not data.confirmed:
+            raise HTTPException(422, 'Revise a mensagem e confirme o teste real de um único email.')
+        return execute(sessions, selected=[data.lead_id], single_test=True)
 
     @app.post("/api/inbox/sync", dependencies=[Depends(authorized)])
     def inbox_sync():

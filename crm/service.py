@@ -72,7 +72,7 @@ def reply_history(s, lead):
 
 def sync_inbox(sessions, gmail, owner):
     with sessions() as s:
-        ids = list(s.scalars(select(Lead.id).where(Lead.first_sent.is_not(None), Lead.status.in_(["em_cadencia", "arquivado"]), Lead.deleted.is_(False))))
+        ids = list(s.scalars(select(Lead.id).where(Lead.first_sent.is_not(None), Lead.status.in_(["em_cadencia", "arquivado", "pausado"]), Lead.deleted.is_(False))))
     count = 0
     for lead_id in ids:
         heartbeat(sessions, owner)
@@ -86,14 +86,18 @@ def sync_inbox(sessions, gmail, owner):
     return count
 
 
-def execute(sessions, selected=None, scheduled=False, gmail_factory=Gmail, clock=None, batch=60):
+def execute(sessions, selected=None, scheduled=False, gmail_factory=Gmail, clock=None, batch=60, single_test=False):
+    if single_test:
+        if scheduled or selected is None or len(selected) != 1:
+            raise ValueError('O teste real exige exatamente um lead e não pode ser agendado.')
+        batch = 1
     at = clock or now()
     local = at.astimezone(TZ)
     with sessions() as s:
         c = campaign(s)
     if scheduled and local.hour != 9:
         return {"sent": 0, "reason": "Fora da janela de 09:00–10:00 de Brasília"}
-    if not c.enabled or not c.approved:
+    if not single_test and (not c.enabled or not c.approved):
         return {"sent": 0, "reason": "Campanha pausada ou ainda não aprovada"}
     if not c.start_date <= local.date().isoformat() <= c.end_date:
         return {"sent": 0, "reason": "Campanha fora do período de validade; revise a oferta antes de reativar"}
@@ -121,6 +125,8 @@ def execute(sessions, selected=None, scheduled=False, gmail_factory=Gmail, clock
                 heartbeat(sessions, owner)
                 with sessions.begin() as s:
                     lead = reply_history(s, s.get(Lead, lead_id))
+                    if single_test and lead.stage != -1:
+                        continue
                     if not is_due(lead, c, current) or s.get(Suppression, lead.email):
                         continue
                     stage = lead.stage + 1
@@ -159,15 +165,17 @@ def execute(sessions, selected=None, scheduled=False, gmail_factory=Gmail, clock
                     lead = s.get(Lead, lead_id)
                     lead.stage, lead.thread_id = stage, result["threadId"]
                     lead.first_sent = lead.first_sent or current.isoformat()
-                    lead.status = "arquivado" if stage == 3 else "em_cadencia"
-                    lead.next_send = None if stage == 3 else (current + timedelta(days=c.intervals[stage])).isoformat()
-                    s.add(Activity(kind="envio", detail=f"{lead.name}: {'primeiro contato' if stage == 0 else f'follow-up {stage}'} enviado."))
+                    lead.status = "pausado" if single_test else ("arquivado" if stage == 3 else "em_cadencia")
+                    lead.next_send = None if single_test or stage == 3 else (current + timedelta(days=c.intervals[stage])).isoformat()
+                    detail = f"{lead.name}: teste real de um email enviado; contato pausado, sem follow-ups." if single_test else f"{lead.name}: {'primeiro contato' if stage == 0 else f'follow-up {stage}'} enviado."
+                    s.add(Activity(kind="envio", detail=detail))
                 sent += 1
             with sessions.begin() as s:
                 s.add(Activity(kind="automacao", detail=f"Execução concluída: {sent} envio(s), {replies} resposta(s)."))
         finally:
             gmail.close()
-    return {"sent": sent, "replies": replies, "reason": "Execução concluída"}
+    reason = 'Teste concluído: contato pausado, sem follow-ups.' if single_test and sent else ('Nenhum email enviado: o contato não é elegível ou a cota diária está esgotada.' if single_test else 'Execução concluída')
+    return {"sent": sent, "replies": replies, "reason": reason}
 
 
 def synchronize(sessions, gmail_factory=Gmail):
