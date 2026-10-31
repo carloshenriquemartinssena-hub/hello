@@ -24,3 +24,7 @@ O agendamento precisa de dois secrets no GitHub Actions: `CRM_BASE_URL` (URL HTT
 Antes de habilitar a campanha, teste captação e sincronização do Gmail no painel, personalize os quatro emails e defina a validade. Abrir o CRM não executa esses passos automaticamente.
 
 Para gerar as credenciais do Gmail, consulte somente a seção “Conectar Gmail e trocar remetente” de `README.md`. Não é necessário reler o guia inteiro.
+
+A automação prepara o servidor às 08:50/08:55 de Brasília e antes dos lotes seguintes, sem enviar emails. Os botões manuais não passam por essa preparação. A primeira abertura de um Render em repouso ainda pode demorar.
+
+Ao importar o `.env` local no Render, confira: `CRM_ENV=production`, `CRM_DATABASE_URL` PostgreSQL do Supabase com `sslmode=verify-full` e `CRM_PUBLIC_URL` com a URL HTTPS do seu serviço. Não mantenha a conexão SQLite do modelo local.

@@ -59,7 +59,7 @@ O backend exige PostgreSQL com `sslmode=verify-full` em produção e não cria t
 O GitHub hospeda o **código**; GitHub Pages não executa Python nem protege os dados. O Render executa o painel/backend e o Supabase mantém dados, anexos e histórico. O banco continua existindo após reinícios do Render.
 
 1. Envie este código para o repositório `hello` ou outro repositório exclusivo. Conecte o GitHub à conta Render desejada.
-2. Crie um Blueprint a partir de [render.yaml](render.yaml). Ele usa Docker, Python 3.12 e um serviço `starter` pago para evitar o repouso do plano gratuito. Confirme o preço no Render antes de contratar; não há serviço contratado por este código.
+2. Crie um Blueprint a partir de [render.yaml](render.yaml). Ele usa Docker, Python 3.12 e o plano `free`. A disponibilidade do plano depende da conta Render; o serviço pode entrar em repouso e está sujeito às cotas gratuitas. Não há serviço contratado por este código.
 3. Preencha as variáveis abaixo. `CRM_SESSION_SECRET` e `CRM_WORKER_TOKEN` são gerados pelo Blueprint; mantenha valores estáveis entre reinícios. A senha do painel precisa ter 16+ caracteres, e os tokens 32+.
 4. Configure `CRM_PUBLIC_URL` com o endereço HTTPS final do serviço, sem barra final. Se mudar o domínio, atualize essa variável. Os cookies de produção exigem HTTPS; a origem das alterações no painel é validada.
 5. Confirme `/healthz` com status `ok`, entre com a senha e verifique **Configurações**. Variável presente não prova autorização do provedor; teste uma captação e a sincronização da caixa antes de habilitar envios.
@@ -134,3 +134,11 @@ O workflow não faz captação automática: descoberta/importação é iniciada 
 ## Estado da entrega
 
 Código implementado e validação local com SQLite/provedores simulados. Publicação no GitHub/Render, execução do SQL na sua conta Supabase e testes reais autorizados de OAuth/captação/envio permanecem para a integração das suas contas. Não há comprovação de entrega de email ou acesso real aos serviços antes dessa conexão.
+
+## Preparação no plano gratuito
+
+O GitHub Actions chama `/api/automation/prepare` às 08:50 e 08:55 de Brasília e às 09:10, 09:15, 09:30 e 09:35 antes dos lotes seguintes. A chamada protegida por `CRM_WORKER_TOKEN` acorda o processo e verifica o banco, sem captar empresas, enviar emails, consumir cotas de envio ou alterar a campanha. Os lotes continuam às 09:00, 09:20 e 09:40.
+
+A busca e o envio manual no painel executam diretamente, sem aguardar preparação. Se o serviço estiver dormindo, o próprio primeiro acesso pode aguardar a inicialização normal do Render; não existe uma espera artificial de 5–10 minutos no modo manual. A captação via Apify ainda depende do tempo de execução da fonte.
+
+O agendamento do GitHub pode atrasar, e o Render Free continua sujeito a limites: a preparação é uma tentativa de reduzir a demora, não uma garantia de horário ou disponibilidade. O workflow manual oferece `prepare` como padrão; escolha `run` apenas para executar um lote real dentro da janela de 09h–10h, com a campanha habilitada. Os secrets `CRM_BASE_URL` e `CRM_WORKER_TOKEN` devem ser cadastrados no GitHub Actions; preencher o `.env` no Render não os cadastra no GitHub automaticamente.

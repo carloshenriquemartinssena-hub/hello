@@ -2,7 +2,7 @@ services:
   - type: web
     name: vertice-crm-brasil
     runtime: docker
-    plan: starter
+    plan: free
     healthCheckPath: /healthz
     envVars:
       - key: CRM_ENV

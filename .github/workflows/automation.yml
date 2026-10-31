@@ -1,9 +1,19 @@
 name: CRM Brasil · Rotina diária
 on:
   schedule:
+    # Acordar o serviço às 08:50/08:55 de Brasília, sem disparos.
+    - cron: "50,55 11 * * *"
+    # Preparar novamente 5–10 minutos antes dos lotes seguintes.
+    - cron: "10,15,30,35 12 * * *"
     # Brasília UTC-3: três lotes de até 20, respeitando 30 novos + 30 follow-ups.
     - cron: "0,20,40 12 * * *"
   workflow_dispatch:
+    inputs:
+      operation:
+        description: "Preparar o serviço ou executar o lote (somente 09h–10h)"
+        type: choice
+        options: [prepare, run]
+        default: prepare
 permissions: {}
 concurrency:
   group: crm2-brasil-automation
@@ -17,10 +27,33 @@ jobs:
         env:
           CRM_BASE_URL: ${{ secrets.CRM_BASE_URL }}
           CRM_WORKER_TOKEN: ${{ secrets.CRM_WORKER_TOKEN }}
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_SCHEDULE: ${{ github.event.schedule }}
+          MANUAL_OPERATION: ${{ inputs.operation }}
         run: |
+          set -eu
           test -n "$CRM_BASE_URL" && test -n "$CRM_WORKER_TOKEN"
           case "$CRM_BASE_URL" in https://*) ;; *) exit 1 ;; esac
-          curl --fail-with-body --silent --show-error --max-time 540 \
-            --request POST \
-            --header "Authorization: Bearer $CRM_WORKER_TOKEN" \
-            "${CRM_BASE_URL%/}/api/automation/run"
+          operation=prepare
+          if [ "$EVENT_NAME" = workflow_dispatch ]; then
+            operation="$MANUAL_OPERATION"
+          elif [ "$EVENT_SCHEDULE" = "0,20,40 12 * * *" ]; then
+            operation=run
+          fi
+          case "$operation" in
+            prepare)
+              curl --fail-with-body --silent --show-error \
+                --connect-timeout 20 --max-time 180 --retry 2 --retry-delay 5 \
+                --request POST \
+                --header "Authorization: Bearer $CRM_WORKER_TOKEN" \
+                "${CRM_BASE_URL%/}/api/automation/prepare"
+              ;;
+            run)
+              # Não repetir uma chamada de envio com resultado incerto.
+              curl --fail-with-body --silent --show-error --max-time 540 \
+                --request POST \
+                --header "Authorization: Bearer $CRM_WORKER_TOKEN" \
+                "${CRM_BASE_URL%/}/api/automation/run"
+              ;;
+            *) exit 1 ;;
+          esac

@@ -19,7 +19,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from .environment import load_environment
-from .db import Activity, Attachment, Config, Dispatch, Lead, Suppression, connect
+from .db import Activity, Attachment, Config, Dispatch, Lead, Lease, Suppression, connect
 from .domain import Campaign, LeadInput, NICHES, STATUSES, TZ, add_lead, campaign, duplicate, render_message, serialize, set_config
 from .providers import ProviderError
 from .service import Busy, daily_counts, exclusive, execute, now, poll_capture, start_capture, synchronize
@@ -363,11 +363,25 @@ def create_app(database_url=None):
         with sessions() as s:
             return [serialize(x) for x in s.scalars(select(Activity).order_by(Activity.id.desc()).limit(200))]
 
-    @app.post("/api/automation/run")
-    def automation(request: Request):
+    def authorize_worker(request: Request):
         token = request.headers.get("authorization", "")
         if len(worker_token) < 32 or not secrets.compare_digest(token, "Bearer " + worker_token):
             raise HTTPException(401, "Token de automação inválido")
+
+    @app.post("/api/automation/prepare", dependencies=[Depends(authorize_worker)])
+    def prepare_automation():
+        # Acorda o servidor e verifica as tabelas sem iniciar captação, reservar
+        # cotas, alterar a campanha ou acessar provedores externos.
+        with sessions() as s:
+            if not s.get(Lease, 1):
+                raise HTTPException(503, "Estrutura do banco incompleta")
+            c = campaign(s)
+        return {"status": "awake", "database": "ok", "campaign_enabled": c.enabled,
+                "emails_sent": 0, "capture_started": False,
+                "timezone": "America/Sao_Paulo"}
+
+    @app.post("/api/automation/run", dependencies=[Depends(authorize_worker)])
+    def automation():
         return execute(sessions, scheduled=True, batch=20)
 
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
