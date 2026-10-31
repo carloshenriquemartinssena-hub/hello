@@ -104,8 +104,14 @@ def connect(url=None):
     if url.startswith("sqlite"):
         @event.listens_for(engine, "connect")
         def pragmas(conn, _):
+            # Transações explícitas também cobrem SAVEPOINT; o modo legado do
+            # sqlite3 pode confirmar o primeiro savepoint antes do commit externo.
+            conn.isolation_level = None
             conn.execute("PRAGMA journal_mode=WAL")
             conn.execute("PRAGMA foreign_keys=ON")
+        @event.listens_for(engine, 'begin')
+        def begin_transaction(conn):
+            conn.exec_driver_sql('BEGIN')
     if url.startswith("sqlite"):
         Base.metadata.create_all(engine)
     sessions = sessionmaker(engine, expire_on_commit=False)

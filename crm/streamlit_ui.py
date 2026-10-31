@@ -33,7 +33,18 @@ def attempts():
 def request(method, path, **kwargs):
     api = LocalAPI(application(), st.session_state.get('api_cookies'),
                    os.getenv('CRM_PUBLIC_URL') or 'https://crm-internal.invalid')
-    result = api.request(method, path, **kwargs)
+    try:
+        result = api.request(method, path, **kwargs)
+    except APIError as exc:
+        if exc.status_code != 401 or path == '/auth/login':
+            raise
+        # 401 é emitido antes de executar a ação. Nunca repetir 5xx/timeouts de envio.
+        if requires_login():
+            st.session_state.pop('auth_fingerprint', None)
+            st.session_state.pop('api_cookies', None)
+            st.rerun()
+        api.request('POST', '/auth/login', json={'password': os.environ['CRM_ADMIN_PASSWORD']})
+        result = api.request(method, path, **kwargs)
     st.session_state.api_cookies = api.cookies
     return result
 
@@ -212,7 +223,7 @@ def leads():
 
 def capture():
     st.title('Boas oportunidades estão perto.')
-    st.caption('Brasil · Sem website informado · 50–400 avaliações · Sem duplicar contatos')
+    st.caption('Email obrigatório · Brasil · Sem website informado · 50–400 avaliações · Sem duplicar contatos')
     settings = request('GET', '/api/settings')
     with st.form('capture'):
         city = st.text_input('Cidade / UF', placeholder='Campinas, SP')
@@ -221,15 +232,47 @@ def capture():
         if st.form_submit_button('Buscar empresas', type='primary'):
             with st.spinner('Iniciando a busca na fonte…'):
                 result = request('POST', '/api/capture', json={'city': city, 'niche': niche, 'limit': limit})
-            st.success('Busca iniciada. Atualize o resultado para importar os contatos quando a fonte concluir.')
-    if st.button('Atualizar resultado da captação'):
-        with st.spinner('Consultando a captação…'):
+            st.success('Busca iniciada. Acompanhe a importação automática abaixo; você também pode atualizar manualmente.')
+    capture_tracker()
+    with st.expander('Recuperar busca já executada no Apify, sem iniciar outra'):
+        st.caption('Se a busca foi feita diretamente no Apify ou a importação foi interrompida, copie o Run ID em Console Apify → Runs → sua execução. Não cole token nem URL de API.')
+        with st.form('recover_capture'):
+            run_id = st.text_input('Run ID da execução Apify')
+            city = st.text_input('Cidade dessa busca', placeholder='Campinas, SP')
+            niche = st.text_input('Nicho dessa busca', placeholder='Oficinas automotivas')
+            force_refresh = st.checkbox('Reavaliar este Run ID com os filtros atuais, sem criar outra busca')
+            if st.form_submit_button('Recuperar e importar execução existente'):
+                request('POST', '/api/capture/recover', json={'run_id': run_id.strip(), 'city': city, 'niche': niche, 'force_refresh': force_refresh})
+                success('Execução recuperada. Consulte o resultado e os motivos de descarte acima.')
+    st.info('Só são importadas empresas com email fornecido pela fonte e válido no formato. O ator do Google Maps pode não fornecer emails: nesse caso, o resultado mostrará os descartes, sem inventar endereços. Buscar pode consumir créditos do Apify; recuperar um Run ID não inicia uma nova busca.')
+
+
+@st.fragment(run_every='10s')
+def capture_tracker():
+    try:
+        result = request('GET', '/api/capture')
+        active = result.get('status') in {'READY', 'RUNNING', 'ABORTING', 'TIMING-OUT'}
+        refresh = st.button('Atualizar resultado da captação')
+        if active or refresh:
             result = request('POST', '/api/capture/poll')
-        if result.get('status') == 'SUCCEEDED':
-            st.success(f"{result['added']} novos leads, {result['duplicates']} duplicados e {result['rejected']} fora do perfil ou inválidos.")
+        if result.get('run_id'):
+            st.caption('Run ID: ' + result['run_id'])
+        if result.get('imported') or (result.get('status') == 'SUCCEEDED' and 'added' in result):
+            text = f"Recebidos: {result.get('total_received', '—')}. Salvos: {result['added']}. Duplicados: {result['duplicates']}. Descartados: {result['rejected']}."
+            st.warning('A fonte terminou com resultado parcial. ' + text) if result.get('partial') else st.success(text)
+            if result.get('rejection_reasons'):
+                st.dataframe([{'Motivo de descarte': reason, 'Quantidade': count} for reason, count in result['rejection_reasons'].items()], hide_index=True, width='stretch')
+            if result.get('warnings'):
+                st.caption('Campos opcionais omitidos: ' + '; '.join(f'{name}: {count}' for name, count in result['warnings'].items()))
+            if result.get('rejection_reasons', {}).get('Sem email válido fornecido pela fonte'):
+                st.info('A fonte não entregou email válido para parte dos resultados. Eles não foram salvos. Será necessário obter emails reais por outra fonte/enriquecimento antes de importá-los.')
+        elif result.get('status') == 'NONE':
+            st.caption('Nenhuma execução registrada. Inicie uma busca aqui ou recupere uma existente pelo Run ID.')
         else:
-            st.info('Status: ' + result.get('status', 'Sem captação'))
-    st.info('Emails e redes sociais só são preenchidos quando fornecidos pela fonte. Sem email, o contato não recebe disparos. As consultas podem consumir créditos do Apify.')
+            st.info('Estado da fonte: ' + result.get('status', 'desconhecido') + '. A atualização automática ocorre enquanto esta página estiver aberta.')
+    except APIError as exc:
+        st.error(str(exc))
+        st.caption('A execução registrada foi preservada. Tente atualizar novamente; não é necessário criar outra busca.')
 
 
 def campaign_view():

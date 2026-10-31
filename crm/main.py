@@ -14,15 +14,18 @@ from pathlib import Path
 from fastapi import Depends, FastAPI, File, HTTPException, Request, Response, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from .environment import load_environment
 from .db import Activity, Attachment, Config, Dispatch, Lead, Lease, Suppression, connect
 from .domain import Campaign, LeadInput, NICHES, STATUSES, TZ, add_lead, campaign, duplicate, render_message, serialize, set_config
 from .providers import ProviderError
-from .service import Busy, daily_counts, exclusive, execute, now, poll_capture, start_capture, synchronize
+from .service import Busy, daily_counts, exclusive, execute, now, poll_capture, start_capture, synchronize, get_capture, recover_capture
+from .validation import validation_summary
+from .diagnostics import database_diagnostic
 
 STATIC = Path(__file__).parent / "static"
 load_environment()
@@ -90,9 +93,24 @@ def create_app(database_url=None):
     async def busy_error(_, exc):
         return JSONResponse({"detail": str(exc)}, status_code=409)
 
+    @app.exception_handler(RequestValidationError)
+    async def validation_error(_, exc):
+        return JSONResponse({'detail': validation_summary(exc.errors()), 'code': 'VALIDATION'}, status_code=422)
+
+    @app.exception_handler(SQLAlchemyError)
+    async def database_error(_, exc):
+        code, message = database_diagnostic(exc)
+        return JSONResponse({'detail': f'[{code}] {message}', 'code': code}, status_code=503)
+
     @app.exception_handler(IntegrityError)
     async def duplicate_error(_, exc):
-        return JSONResponse({"detail": "Já existe um lead com esse email, telefone ou identificação do Google."}, status_code=409)
+        code, message = database_diagnostic(exc)
+        if code == 'DB_SEQUENCE':
+            return JSONResponse({'detail': f'[{code}] {message}', 'code': code}, status_code=503)
+        if getattr(exc.orig, 'sqlstate', None) == '23505' or 'unique constraint' in str(exc.orig).lower():
+            return JSONResponse({"detail": "Já existe um registro com esse email, telefone, identificação ou chave. Atualize os dados antes de tentar novamente."}, status_code=409)
+        code, message = database_diagnostic(exc)
+        return JSONResponse({'detail': f'[{code}] {message}', 'code': code}, status_code=503)
 
     @app.exception_handler(Exception)
     async def unexpected_error(_, exc):
@@ -338,6 +356,20 @@ def create_app(database_url=None):
     @app.post("/api/capture", dependencies=[Depends(authorized)])
     def capture(data: Capture):
         return start_capture(sessions, data.city, data.niche, data.limit)
+
+    @app.get('/api/capture', dependencies=[Depends(authorized)])
+    def capture_status():
+        return get_capture(sessions)
+
+    class RecoverCapture(BaseModel):
+        run_id: str = Field(pattern=r'^[A-Za-z0-9_-]{5,88}$')
+        city: str = Field(min_length=2, max_length=120)
+        niche: str = Field(min_length=2, max_length=120)
+        force_refresh: bool = False
+
+    @app.post('/api/capture/recover', dependencies=[Depends(authorized)])
+    def capture_recover(data: RecoverCapture):
+        return recover_capture(sessions, data.run_id, data.city, data.niche, data.force_refresh)
 
     @app.post("/api/capture/poll", dependencies=[Depends(authorized)])
     def capture_poll():

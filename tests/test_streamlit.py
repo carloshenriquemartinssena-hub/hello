@@ -133,3 +133,54 @@ def test_streamlit_shows_safe_specific_database_failure(streamlit_app, monkeypat
     assert not at.exception
     assert any('[DB_TABLES]' in x.value for x in at.error)
     assert not any('private-driver-detail' in x.value for x in at.error)
+
+
+def test_campaign_form_reports_error_then_saves_corrected_data(streamlit_app):
+    from datetime import date
+    from crm.domain import campaign
+    at = AppTest.from_file(str(Path(__file__).resolve().parents[1] / 'streamlit_app.py'), default_timeout=15).run()
+    widget(at.text_input, 'Senha do administrador').set_value(PASSWORD)
+    widget(at.button, 'Entrar').click().run()
+    widget(at.radio, 'Espaço de trabalho').set_value('Campanha & cadência').run()
+    widget(at.text_input, 'Nome da campanha').set_value('Campanha salva pelo formulário')
+    widget(at.date_input, 'Início da oferta').set_value(date(2026, 11, 1))
+    widget(at.date_input, 'Último dia da oferta (até 7 dias)').set_value(date(2026, 11, 30))
+    widget(at.button, 'Salvar campanha').click().run()
+    assert any('7 dias' in e.value for e in at.error)
+    widget(at.date_input, 'Último dia da oferta (até 7 dias)').set_value(date(2026, 11, 7))
+    widget(at.button, 'Salvar campanha').click().run()
+    assert not at.exception and not at.error
+    with streamlit_app.state.sessions() as s:
+        assert campaign(s).name == 'Campanha salva pelo formulário'
+
+
+def test_capture_recovery_form_imports_email_and_shows_discard_reasons(streamlit_app, monkeypatch):
+    class Source:
+        def start(self, *args): raise AssertionError('Não iniciar outra busca')
+        def poll(self, run_id):
+            assert run_id == 'run-from-console'
+            base = {'title': 'Empresa com email', 'countryCode': 'BR', 'reviewsCount': 100, 'emails': ['contato@example.invalid'], 'placeId': 'ui-capture-place'}
+            return 'SUCCEEDED', [base, {**base, 'emails': []}]
+        def close(self): pass
+    monkeypatch.setattr('crm.service.Apify', Source)
+    at = AppTest.from_file(str(Path(__file__).resolve().parents[1] / 'streamlit_app.py'), default_timeout=15).run()
+    widget(at.text_input, 'Senha do administrador').set_value(PASSWORD)
+    widget(at.button, 'Entrar').click().run()
+    widget(at.radio, 'Espaço de trabalho').set_value('Encontrar empresas').run()
+    widget(at.text_input, 'Run ID da execução Apify').set_value('run-from-console')
+    widget(at.text_input, 'Cidade dessa busca').set_value('Campinas')
+    widget(at.text_input, 'Nicho dessa busca').set_value('Oficinas')
+    widget(at.button, 'Recuperar e importar execução existente').click().run()
+    assert not at.exception and not at.error
+    assert any('Salvos: 1' in e.value for e in at.success)
+    assert any('Sem email válido fornecido pela fonte' in str(e.value) for e in at.dataframe)
+
+
+def test_private_mode_recovers_expired_internal_session(streamlit_app, monkeypatch):
+    monkeypatch.setenv('CRM_REQUIRE_LOGIN', 'false')
+    at = AppTest.from_file(str(Path(__file__).resolve().parents[1] / 'streamlit_app.py'), default_timeout=15).run()
+    assert not at.error
+    at.session_state['api_cookies'] = {'crm2_session': '0.invalid'}
+    widget(at.radio, 'Espaço de trabalho').set_value('Meus leads').run()
+    assert not at.exception and not at.error
+    assert not any(x.label == 'Senha do administrador' for x in at.text_input)

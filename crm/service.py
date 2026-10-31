@@ -1,13 +1,16 @@
 import json
 import uuid
+from collections import Counter
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import func, select, update
+from sqlalchemy.exc import IntegrityError
 
 from .db import Activity, Attachment, Config, Dispatch, Lead, Lease, Suppression, utcnow
 from .domain import TZ, add_lead, campaign, set_config
-from .providers import Apify, Gmail, ProviderError, map_place
+from .providers import Apify, Gmail, ProviderError, classify_place, REJECTION_LABELS
+from .diagnostics import database_diagnostic
 
 
 class Busy(RuntimeError):
@@ -189,11 +192,27 @@ def synchronize(sessions, gmail_factory=Gmail):
             gmail.close()
 
 
+CAPTURE_ACTIVE = {'RUNNING', 'READY', 'ABORTING', 'TIMING-OUT'}
+CAPTURE_TERMINAL = {'SUCCEEDED', 'FAILED', 'TIMED-OUT', 'ABORTED'}
+
+
+def save_capture(s, data):
+    set_config(s, 'capture', data)
+    if data.get('run_id'):
+        set_config(s, 'capture_run:' + data['run_id'], data)
+
+
+def get_capture(sessions):
+    with sessions() as s:
+        row = s.get(Config, 'capture')
+        return json.loads(row.value) if row else {'status': 'NONE'}
+
+
 def start_capture(sessions, city, niche, limit):
     with exclusive(sessions):
         with sessions() as s:
             row = s.get(Config, "capture")
-            if row and json.loads(row.value).get("status") in {"RUNNING", "READY"}:
+            if row and json.loads(row.value).get("status") in CAPTURE_ACTIVE:
                 raise Busy("Já existe uma captação em andamento. Atualize o resultado antes de iniciar outra.")
         provider = Apify()
         try:
@@ -202,45 +221,91 @@ def start_capture(sessions, city, niche, limit):
             provider.close()
         data = {"run_id": run_id, "city": city, "niche": niche, "status": "RUNNING", "created_at": utcnow()}
         with sessions.begin() as s:
-            set_config(s, "capture", data)
+            save_capture(s, data)
             s.add(Activity(kind="captacao", detail=f"Busca iniciada: {niche}, {city}."))
         return data
 
 
-def poll_capture(sessions):
-    with exclusive(sessions):
-        with sessions() as s:
-            row = s.get(Config, "capture")
-            if not row:
-                return {"status": "NONE"}
-            data = json.loads(row.value)
-        if data["status"] not in {"RUNNING", "READY"}:
-            return data
-        provider = Apify()
+def import_capture_items(s, data, items, status):
+    added = duplicates = rejected = 0
+    reasons, warnings = Counter(), Counter()
+    for item in items:
+        lead, reason, notices = classify_place(item, data['city'], data['niche'])
+        warnings.update(notices)
+        if lead is None:
+            rejected += 1
+            reasons[reason] += 1
+            continue
         try:
-            status, items = provider.poll(data["run_id"])
-        finally:
-            provider.close()
-        data["status"] = status
-        if status == "SUCCEEDED":
-            added = duplicate = rejected = 0
-            with sessions.begin() as s:
-                for item in items:
-                    try:
-                        lead = map_place(item, data["city"], data["niche"])
-                    except (ValueError, TypeError):
-                        rejected += 1
-                        continue
-                    if lead is None:
-                        rejected += 1
-                    elif add_lead(s, lead):
-                        added += 1
-                    else:
-                        duplicate += 1
-                data.update(added=added, duplicates=duplicate, rejected=rejected)
-                s.add(Activity(kind="captacao", detail=f"Captação concluída: {added} novos, {duplicate} duplicados, {rejected} fora do perfil ou inválidos."))
-                set_config(s, "capture", data)
+            # Um registro conflitante não desfaz todos os registros da execução.
+            with s.begin_nested():
+                result = add_lead(s, lead)
+        except IntegrityError as exc:
+            code, message = database_diagnostic(exc)
+            if code == 'DB_SEQUENCE':
+                raise ProviderError(f'[{code}] {message}') from None
+            if getattr(exc.orig, 'sqlstate', None) == '23505' or 'unique constraint' in str(exc.orig).lower():
+                duplicates += 1
+                continue
+            raise  # Falha estrutural não pode ser contornada como dado descartado.
+        if result:
+            added += 1
         else:
-            with sessions.begin() as s:
-                set_config(s, "capture", data)
+            duplicates += 1
+    data.update(status=status, imported=True, partial=status != 'SUCCEEDED', added=added,
+                duplicates=duplicates, rejected=rejected, total_received=len(items),
+                rejection_reasons={REJECTION_LABELS[k]: n for k, n in reasons.items()},
+                warnings=dict(warnings), imported_at=utcnow())
+    s.add(Activity(kind='captacao', detail=f"Captação {'parcial ' if data['partial'] else ''}importada: {added} novos, {duplicates} duplicados, {rejected} descartados. Email obrigatório. Run ID: {data.get('run_id', 'arquivo')}."))
+    save_capture(s, data)
+    return data
+
+
+def _poll_capture(sessions, owner):
+    with sessions() as s:
+        row = s.get(Config, "capture")
+        if not row:
+            return {"status": "NONE"}
+        data = json.loads(row.value)
+    if data.get('imported') or (data['status'] == 'SUCCEEDED' and 'added' in data):
         return data
+    provider = Apify()
+    try:
+        status, items = provider.poll(data["run_id"])
+    finally:
+        provider.close()
+    data["status"] = status
+    if status in CAPTURE_TERMINAL:
+        heartbeat(sessions, owner)
+        with sessions.begin() as s:
+            import_capture_items(s, data, items, status)
+    else:
+        with sessions.begin() as s:
+            save_capture(s, data)
+    return data
+
+
+def poll_capture(sessions):
+    with exclusive(sessions) as owner:
+        return _poll_capture(sessions, owner)
+
+
+def recover_capture(sessions, run_id, city, niche, force_refresh=False):
+    with exclusive(sessions) as owner:
+        with sessions.begin() as s:
+            current = s.get(Config, 'capture')
+            if current:
+                old = json.loads(current.value)
+                if old.get('run_id'):
+                    set_config(s, 'capture_run:' + old['run_id'], old)
+            existing = s.get(Config, 'capture_run:' + run_id)
+            data = json.loads(existing.value) if existing else {'run_id': run_id, 'city': city, 'niche': niche, 'status': 'READY', 'created_at': utcnow()}
+            if force_refresh:
+                data['city'], data['niche'] = city, niche
+                data['previous_import'] = {k: data[k] for k in ('added', 'duplicates', 'rejected', 'imported_at') if k in data}
+                for key in ('imported', 'added', 'duplicates', 'rejected', 'rejection_reasons', 'warnings', 'total_received', 'partial', 'imported_at'):
+                    data.pop(key, None)
+                data['status'] = 'READY'
+            # Executa somente consultas à execução existente. Não cria outro ator.
+            save_capture(s, data)
+        return _poll_capture(sessions, owner)

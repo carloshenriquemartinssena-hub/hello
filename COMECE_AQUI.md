@@ -19,3 +19,11 @@ Em Encontrar empresas, busque 25 resultados para um nicho/cidade e clique Atuali
 O teste respeita cotas e bloqueios, envia no máximo um email inicial e pausa o contato sem agendar follow-ups. Repetir o clique no mesmo contato não envia novamente. Se a fonte não fornecer email, o teste não envia nada; não invente endereços. Se houver timeout de envio, confira Gmail Enviados antes de qualquer ação: o sistema mantém a reserva e não repete automaticamente.
 
 O resultado de envio confirmado pelo Gmail não comprova entrega na caixa de entrada ou leitura pelo destinatário. Verifique Atividades e a pasta Enviados. As credenciais nos Secrets do Streamlit/GitHub não ficam acessíveis ao assistente nesta conversa; esta preparação não representa execução de um teste real na sua conta.
+
+## Sua busca do Apify não apareceu no CRM?
+
+Reinicie o app para carregar a versão atual. Em Encontrar empresas, abra **Recuperar busca já executada no Apify**, cole somente o **Run ID** da execução existente e informe cidade/nicho. Se for uma execução antiga já concluída no CRM, marque **Reavaliar**. Isso não inicia outra busca. Confira os contadores e os motivos de descarte: **sem email válido, a empresa não é importada**. O Maps pode não fornecer emails; nesse caso, será necessária outra fonte de contato.
+
+Para salvar campanha, a mensagem agora informa a regra exata caso algum campo esteja inválido. Se a oferta tiver mais de sete dias ou você tentar habilitar sem aprovar, corrija o campo e salve novamente; a campanha anterior não é apagada.
+
+No banco existente, o arquivo complementar `supabase/002_runtime_indexes.sql` protege a unicidade de envios, adiciona índices e alinha sequências de IDs sem apagar registros. Execute apenas no projeto do CRM 2. Não execute o dump marcado como “context only”.

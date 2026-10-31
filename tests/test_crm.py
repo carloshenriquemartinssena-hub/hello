@@ -81,9 +81,10 @@ def test_csv_formula_escape(client):
 
 
 def test_capture_filters_and_real_contacts():
-    place = {"title": "Clínica Brasil", "countryCode": "BR", "reviewsCount": 50, "phone": "+55 11 99999-0000", "placeId": "123", "url": "https://maps.google.com/test"}
+    place = {"title": "Clínica Brasil", "countryCode": "BR", "reviewsCount": 50, "phone": "+55 11 99999-0000", "placeId": "123", "url": "https://maps.google.com/test", 'emails': ['contato@example.invalid']}
     lead = map_place(place, "São Paulo", "Clínicas")
-    assert lead.email is None and lead.phone == "5511999990000"
+    assert lead.email == 'contato@example.invalid' and lead.phone == "5511999990000"
+    assert map_place({**place, 'emails': []}, 'SP', 'Clínicas') is None
     for extra in [{"countryCode": "US"}, {"countryCode": ""}, {"reviewsCount": 49}, {"reviewsCount": 401}, {"website": "https://example.com"}, {"permanentlyClosed": True}]:
         assert map_place({**place, **extra}, "SP", "Clínicas") is None
     assert map_place({**place, "reviewsCount": 400, "emails": ["REAL@EMPRESA.COM.BR"]}, "SP", "Clínicas").email == "real@empresa.com.br"
@@ -226,7 +227,7 @@ def test_capture_pipeline_idempotent_and_filtered(app, client, monkeypatch):
 
         def poll(self, run_id):
             assert run_id=='run-123'
-            place={'title':'Empresa Captada','countryCode':'BR','reviewsCount':120,'placeId':'place-1','phone':'11999999999'}
+            place={'title':'Empresa Captada','countryCode':'BR','reviewsCount':120,'placeId':'place-1','phone':'11999999999','emails':['contato@example.invalid']}
             return 'SUCCEEDED',[place,place,{**place,'website':'https://site.com'},{**place,'placeId':'place-2','emails':['invalid']}]
 
         def close(self):

@@ -2,13 +2,14 @@
 
 
 def database_diagnostic(error):
-    pending, seen, codes, texts = [error], set(), set(), []
+    pending, seen, codes, texts, constraints = [error], set(), set(), [], set()
     while pending and len(seen) < 30:
         item = pending.pop()
         if id(item) in seen:
             continue
         seen.add(id(item))
         codes.add(getattr(item, 'sqlstate', None))
+        constraints.add(getattr(getattr(item, 'diag', None), 'constraint_name', None))
         # Somente para comparação local. Este texto NUNCA é exibido ou registrado.
         texts.append(str(item).lower())
         for name in ('orig', '__cause__', '__context__'):
@@ -16,6 +17,8 @@ def database_diagnostic(error):
             if isinstance(nested, BaseException):
                 pending.append(nested)
     text = '\n'.join(texts)
+    if '23505' in codes and constraints & {'crm2_leads_pkey', 'crm2_activity_pkey', 'crm2_attachments_pkey', 'crm2_dispatches_pkey'}:
+        return 'DB_SEQUENCE', 'A sequência de IDs do banco está atrasada em relação aos registros existentes. Execute supabase/002_runtime_indexes.sql para alinhá-la sem apagar dados; depois recupere a execução pelo Run ID.'
     if codes & {'28P01', '28000'} or 'password authentication failed' in text or 'invalid password' in text:
         return 'DB_AUTH', 'O PostgreSQL recusou a autenticação. Atualize Secrets com a senha atual do banco, não a senha do painel CRM. Codifique caracteres especiais da senha na URI.'
     if 'tenant or user not found' in text or 'tenant not found' in text:
@@ -26,6 +29,10 @@ def database_diagnostic(error):
         return 'DB_COLUMNS', 'A conexão foi aberta, mas uma tabela tem estrutura diferente da versão atual. Confira o esquema do CRM 2; não apague tabelas com dados para tentar corrigir.'
     if '42501' in codes:
         return 'DB_PERMISSION', 'O usuário do PostgreSQL não tem permissão nas tabelas. Use a conexão do proprietário fornecida em Connect; não use uma chave anon nem a conexão de outro projeto.'
+    if '23502' in codes or 'not null constraint' in text:
+        return 'DB_REQUIRED_DATA', 'O banco recusou um campo obrigatório. Confira os campos do formulário e a estrutura do CRM 2; a operação não foi tratada como duplicada.'
+    if '23503' in codes or 'foreign key constraint' in text:
+        return 'DB_REFERENCE', 'O registro associado não existe mais ou não corresponde ao banco atual. Atualize a página; não apague o histórico de envios para tentar corrigir.'
     if any(marker in text for marker in ('certificate verify failed', 'root certificate file', 'sslrootcert', 'self-signed certificate', 'could not read certificate')):
         return 'DB_CERTIFICATE', 'O certificado do banco não foi validado. Baixe o certificado raiz oficial nas configurações SSL do Supabase e cole o PEM em CRM_DATABASE_CA_CERT, usando aspas triplas nos Secrets. Mantenha sslmode=verify-full.'
     if 'sslmode=verify-full' in text:

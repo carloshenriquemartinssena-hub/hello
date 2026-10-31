@@ -5,6 +5,21 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: crm2-local-verification-only
+          POSTGRES_DB: crm2qa
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d crm2qa"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      CRM2_TEST_POSTGRES_URL: postgresql+psycopg://postgres:crm2-local-verification-only@127.0.0.1:5432/crm2qa
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
