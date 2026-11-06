@@ -161,11 +161,14 @@ def leads():
     selected = []
     if rows:
         frame = pd.DataFrame([{'Selecionar': False, 'ID': x['id'], 'Empresa': x['name'], 'Email': x['email'] or '',
-                               'Telefone': x['phone'] or '', 'Cidade': x['city'], 'Nicho': x['niche'],
+                               'Telefone': f"https://wa.me/{x['phone']}" if x['phone'] else None, 'Cidade': x['city'], 'Nicho': x['niche'],
                                'Avaliações': x['reviews'], 'Status': STATUS[x['status']],
                                'Etapa': 'Não iniciada' if x['stage'] < 0 else ('Inicial' if x['stage'] == 0 else f"Follow-up {x['stage']}")}
                               for x in rows])
         edited = st.data_editor(frame, disabled=[x for x in frame.columns if x != 'Selecionar'],
+                                column_config={'Telefone': st.column_config.LinkColumn(
+                                    'WhatsApp', help='Abrir conversa no WhatsApp',
+                                    display_text=r'https://wa\.me/(\d+)')},
                                 hide_index=True, width='stretch', key=f'lead_selection_{page}_{status}_{query}')
         selected = [int(x) for x in edited.loc[edited['Selecionar'], 'ID'].tolist()]
         st.caption(f"{data['total']} empresas encontradas · {len(selected)} selecionadas · 25 por página")
